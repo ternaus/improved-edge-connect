@@ -6,13 +6,14 @@ class EdgeAccuracy(nn.Module):
     """
     Measures the accuracy of the edge map
     """
-    def __init__(self, threshold: float = .5):
-        super(EdgeAccuracy, self).__init__()
+
+    def __init__(self, threshold: float = 0.5):
+        super().__init__()
         self.threshold = threshold
 
     def __call__(self, inputs, outputs):
-        labels = (inputs > self.threshold)
-        outputs = (outputs > self.threshold)
+        labels = inputs > self.threshold
+        outputs = outputs > self.threshold
 
         relevant = torch.sum(labels.float())
         selected = torch.sum(outputs.float())
@@ -28,13 +29,13 @@ class EdgeAccuracy(nn.Module):
 
 class PSNR(nn.Module):
     def __init__(self, max_val):
-        super(PSNR, self).__init__()
+        super().__init__()
 
-        base10 = torch.log(torch.tensor(10.))
+        base10 = torch.log(torch.tensor(10.0))
         max_val = torch.tensor(max_val).float()
 
-        self.register_buffer('base10', base10)
-        self.register_buffer('max_val', 20 * torch.log(max_val) / base10)
+        self.register_buffer("base10", base10)
+        self.register_buffer("max_val", 20 * torch.log(max_val) / base10)
 
     def __call__(self, a, b):
         mse = torch.mean((a.float() - b.float()) ** 2)

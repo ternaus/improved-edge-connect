@@ -1,91 +1,84 @@
 import os
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
+from torch import nn
 
 from .loss import AdversarialLoss, PerceptualLoss, StyleLoss
 from .networks import InpaintGenerator, EdgeGenerator, Discriminator
+from .config import Config
 
 
 class BaseModel(nn.Module):
-    def __init__(self, name: str, config):
-        super(BaseModel, self).__init__()
+    def __init__(self, name: str, config: Config) -> None:
+        super().__init__()
 
         self.name = name
         self.config = config
         self.iteration = 0
 
-        self.gen_weights_path = os.path.join(config.PATH, name + '_gen.pth')
-        self.dis_weights_path = os.path.join(config.PATH, name + '_dis.pth')
+        self.gen_weights_path = os.path.join(config.PATH, name + "_gen.pth")
+        self.dis_weights_path = os.path.join(config.PATH, name + "_dis.pth")
 
-    def load(self):
+    def load(self) -> None:
         if os.path.exists(self.gen_weights_path):
-            print('Loading %s generator...' % self.name)
+            print("Loading %s generator..." % self.name)
 
             if torch.cuda.is_available():
                 data = torch.load(self.gen_weights_path)
             else:
                 data = torch.load(self.gen_weights_path, map_location=lambda storage, loc: storage)
 
-            self.generator.load_state_dict(data['generator'])
-            self.iteration = data['iteration']
+            self.generator.load_state_dict(data["generator"])
+            self.iteration = data["iteration"]
 
         # load discriminator only when training
         if self.config.MODE == 1 and os.path.exists(self.dis_weights_path):
-            print('Loading %s discriminator...' % self.name)
+            print("Loading %s discriminator..." % self.name)
 
             if torch.cuda.is_available():
                 data = torch.load(self.dis_weights_path)
             else:
                 data = torch.load(self.dis_weights_path, map_location=lambda storage, loc: storage)
 
-            self.discriminator.load_state_dict(data['discriminator'])
+            self.discriminator.load_state_dict(data["discriminator"])
 
-    def save(self):
-        print('\nsaving %s...\n' % self.name)
-        torch.save({
-            'iteration': self.iteration,
-            'generator': self.generator.state_dict()
-        }, self.gen_weights_path)
+    def save(self) -> None:
+        print("\nsaving %s...\n" % self.name)
+        torch.save({"iteration": self.iteration, "generator": self.generator.state_dict()}, self.gen_weights_path)
 
-        torch.save({
-            'discriminator': self.discriminator.state_dict()
-        }, self.dis_weights_path)
+        torch.save({"discriminator": self.discriminator.state_dict()}, self.dis_weights_path)
 
 
 class EdgeModel(BaseModel):
-    def __init__(self, config):
-        super(EdgeModel, self).__init__('EdgeModel', config)
+    def __init__(self, config: Config):
+        super().__init__("EdgeModel", config)
 
         # generator input: [grayscale(1) + edge(1) + mask(1)]
         # discriminator input: (grayscale(1) + edge(1))
         generator = EdgeGenerator(use_spectral_norm=True)
-        discriminator = Discriminator(in_channels=2, use_sigmoid=config.GAN_LOSS != 'hinge')
+        discriminator = Discriminator(in_channels=2, use_sigmoid=config.GAN_LOSS != "hinge")
         if len(config.GPU) > 1:
             generator = nn.DataParallel(generator, config.GPU)
             discriminator = nn.DataParallel(discriminator, config.GPU)
         l1_loss = nn.L1Loss()
         adversarial_loss = AdversarialLoss(loss_type=config.GAN_LOSS)
 
-        self.add_module('generator', generator)
-        self.add_module('discriminator', discriminator)
+        self.add_module("generator", generator)
+        self.add_module("discriminator", discriminator)
 
-        self.add_module('l1_loss', l1_loss)
-        self.add_module('adversarial_loss', adversarial_loss)
+        self.add_module("l1_loss", l1_loss)
+        self.add_module("adversarial_loss", adversarial_loss)
 
         self.gen_optimizer = optim.Adam(
-            params=generator.parameters(),
-            lr=float(config.LR),
-            betas=(config.BETA1, config.BETA2),
-            eps=1e-6
+            params=generator.parameters(), lr=float(config.LR), betas=(config.BETA1, config.BETA2), eps=1e-6
         )
 
         self.dis_optimizer = optim.Adam(
             params=discriminator.parameters(),
             lr=float(config.LR) * float(config.D2G_LR),
             betas=(config.BETA1, config.BETA2),
-            eps=1e-6
+            eps=1e-6,
         )
 
     def process(self, images, edges, masks):
@@ -132,7 +125,7 @@ class EdgeModel(BaseModel):
         return outputs, gen_loss, dis_loss, logs
 
     def forward(self, images, edges, masks):
-        edges_masked = (edges * (1 - masks))
+        edges_masked = edges * (1 - masks)
         images_masked = (images * (1 - masks)) + masks
         inputs = torch.cat((images_masked, edges_masked, masks), dim=1)
         outputs = self.generator(inputs)  # in: [grayscale(1) + edge(1) + mask(1)]
@@ -149,13 +142,13 @@ class EdgeModel(BaseModel):
 
 
 class InpaintingModel(BaseModel):
-    def __init__(self, config):
-        super(InpaintingModel, self).__init__('InpaintingModel', config)
+    def __init__(self, config: Config) -> None:
+        super().__init__("InpaintingModel", config)
 
         # generator input: [rgb(3) + edge(1)]
         # discriminator input: [rgb(3)]
         generator = InpaintGenerator()
-        discriminator = Discriminator(in_channels=3, use_sigmoid=config.GAN_LOSS != 'hinge')
+        discriminator = Discriminator(in_channels=3, use_sigmoid=config.GAN_LOSS != "hinge")
         if len(config.GPU) > 1:
             generator = nn.DataParallel(generator, config.GPU)
             discriminator = nn.DataParallel(discriminator, config.GPU)
@@ -165,26 +158,23 @@ class InpaintingModel(BaseModel):
         style_loss = StyleLoss()
         adversarial_loss = AdversarialLoss(loss_type=config.GAN_LOSS)
 
-        self.add_module('generator', generator)
-        self.add_module('discriminator', discriminator)
+        self.add_module("generator", generator)
+        self.add_module("discriminator", discriminator)
 
-        self.add_module('l1_loss', l1_loss)
-        self.add_module('perceptual_loss', perceptual_loss)
-        self.add_module('style_loss', style_loss)
-        self.add_module('adversarial_loss', adversarial_loss)
+        self.add_module("l1_loss", l1_loss)
+        self.add_module("perceptual_loss", perceptual_loss)
+        self.add_module("style_loss", style_loss)
+        self.add_module("adversarial_loss", adversarial_loss)
 
         self.gen_optimizer = optim.Adam(
-            params=generator.parameters(),
-            lr=float(config.LR),
-            betas=(config.BETA1, config.BETA2),
-            eps=1e-6
+            params=generator.parameters(), lr=float(config.LR), betas=(config.BETA1, config.BETA2), eps=1e-6
         )
 
         self.dis_optimizer = optim.Adam(
             params=discriminator.parameters(),
             lr=float(config.LR) * float(config.D2G_LR),
             betas=(config.BETA1, config.BETA2),
-            eps=1e-6
+            eps=1e-6,
         )
 
     def process(self, images, edges, masks):

@@ -1,5 +1,8 @@
-import torch.nn as nn
+from typing import List
+
+import torch
 import torch.nn.functional as F
+from torch import nn
 from torchvision import models
 
 
@@ -15,14 +18,16 @@ class InceptionV3(nn.Module):
         64: 0,  # First max pooling features
         192: 1,  # Second max pooling featurs
         768: 2,  # Pre-aux classifier features
-        2048: 3  # Final average pooling features
+        2048: 3,  # Final average pooling features
     }
 
-    def __init__(self,
-                 output_blocks=[DEFAULT_BLOCK_INDEX],
-                 resize_input=True,
-                 normalize_input=True,
-                 requires_grad=False):
+    def __init__(
+        self,
+        output_blocks: List[int] = [DEFAULT_BLOCK_INDEX],
+        resize_input: bool = True,
+        normalize_input: bool = True,
+        requires_grad: bool = False,
+    ) -> None:
         """Build pretrained InceptionV3
         Parameters
         ----------
@@ -44,15 +49,15 @@ class InceptionV3(nn.Module):
             If true, parameters of the model require gradient. Possibly useful
             for finetuning the network
         """
-        super(InceptionV3, self).__init__()
+        super().__init__()
 
         self.resize_input = resize_input
         self.normalize_input = normalize_input
         self.output_blocks = sorted(output_blocks)
         self.last_needed_block = max(output_blocks)
 
-        assert self.last_needed_block <= 3, \
-            'Last possible output block index is 3'
+        if self.last_needed_block > 3:
+            raise ValueError("Last possible output block index is 3")
 
         self.blocks = nn.ModuleList()
 
@@ -63,17 +68,13 @@ class InceptionV3(nn.Module):
             inception.Conv2d_1a_3x3,
             inception.Conv2d_2a_3x3,
             inception.Conv2d_2b_3x3,
-            nn.MaxPool2d(kernel_size=3, stride=2)
+            nn.MaxPool2d(kernel_size=3, stride=2),
         ]
         self.blocks.append(nn.Sequential(*block0))
 
         # Block 1: maxpool1 to maxpool2
         if self.last_needed_block >= 1:
-            block1 = [
-                inception.Conv2d_3b_1x1,
-                inception.Conv2d_4a_3x3,
-                nn.MaxPool2d(kernel_size=3, stride=2)
-            ]
+            block1 = [inception.Conv2d_3b_1x1, inception.Conv2d_4a_3x3, nn.MaxPool2d(kernel_size=3, stride=2)]
             self.blocks.append(nn.Sequential(*block1))
 
         # Block 2: maxpool2 to aux classifier
@@ -96,14 +97,14 @@ class InceptionV3(nn.Module):
                 inception.Mixed_7a,
                 inception.Mixed_7b,
                 inception.Mixed_7c,
-                nn.AdaptiveAvgPool2d(output_size=(1, 1))
+                nn.AdaptiveAvgPool2d(output_size=(1, 1)),
             ]
             self.blocks.append(nn.Sequential(*block3))
 
         for param in self.parameters():
             param.requires_grad = requires_grad
 
-    def forward(self, inp):
+    def forward(self, inp: torch.Tensor) -> torch.Tensor:
         """Get Inception feature maps
         Parameters
         ----------
@@ -119,7 +120,7 @@ class InceptionV3(nn.Module):
         x = inp
 
         if self.resize_input:
-            x = F.upsample(x, size=(299, 299), mode='bilinear')
+            x = F.upsample(x, size=(299, 299), mode="bilinear")
 
         if self.normalize_input:
             x = x.clone()

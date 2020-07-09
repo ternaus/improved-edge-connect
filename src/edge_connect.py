@@ -16,13 +16,13 @@ class EdgeConnect:
         self.config = config
 
         if config.MODEL == 1:
-            model_name = 'edge'
+            model_name = "edge"
         elif config.MODEL == 2:
-            model_name = 'inpaint'
+            model_name = "inpaint"
         elif config.MODEL == 3:
-            model_name = 'edge_inpaint'
+            model_name = "edge_inpaint"
         elif config.MODEL == 4:
-            model_name = 'joint'
+            model_name = "joint"
         else:
             raise NotImplementedError
 
@@ -36,17 +36,30 @@ class EdgeConnect:
 
         # test mode
         if self.config.MODE == 2:
-            self.test_dataset = Dataset(config, config.TEST_FLIST, config.TEST_EDGE_FLIST, config.TEST_MASK_FLIST,
-                                        augment=False, training=False)
+            self.test_dataset = Dataset(
+                config,
+                config.TEST_FLIST,
+                config.TEST_EDGE_FLIST,
+                config.TEST_MASK_FLIST,
+                augment=False,
+                training=False,
+            )
         else:
-            self.train_dataset = Dataset(config, config.TRAIN_FLIST, config.TRAIN_EDGE_FLIST, config.TRAIN_MASK_FLIST,
-                                         augment=True, training=True)
-            self.val_dataset = Dataset(config, config.VAL_FLIST, config.VAL_EDGE_FLIST, config.VAL_MASK_FLIST,
-                                       augment=False, training=True)
+            self.train_dataset = Dataset(
+                config,
+                config.TRAIN_FLIST,
+                config.TRAIN_EDGE_FLIST,
+                config.TRAIN_MASK_FLIST,
+                augment=True,
+                training=True,
+            )
+            self.val_dataset = Dataset(
+                config, config.VAL_FLIST, config.VAL_EDGE_FLIST, config.VAL_MASK_FLIST, augment=False, training=True
+            )
             self.sample_iterator = self.val_dataset.create_iterator(config.SAMPLE_SIZE)
 
-        self.samples_path = os.path.join(config.PATH, 'samples')
-        self.results_path = os.path.join(config.PATH, 'results')
+        self.samples_path = os.path.join(config.PATH, "samples")
+        self.results_path = os.path.join(config.PATH, "results")
 
         if config.RESULTS is not None:
             self.results_path = os.path.join(config.RESULTS)
@@ -54,7 +67,7 @@ class EdgeConnect:
         if config.DEBUG is not None and config.DEBUG != 0:
             self.debug = True
 
-        self.log_file = os.path.join(config.PATH, 'log_' + model_name + '.dat')
+        self.log_file = os.path.join(config.PATH, "log_" + model_name + ".dat")
 
     def load(self):
         if self.config.MODEL == 1:
@@ -80,11 +93,7 @@ class EdgeConnect:
 
     def train(self):
         train_loader = DataLoader(
-            dataset=self.train_dataset,
-            batch_size=self.config.BATCH_SIZE,
-            num_workers=8,
-            drop_last=True,
-            shuffle=True
+            dataset=self.train_dataset, batch_size=self.config.BATCH_SIZE, num_workers=8, drop_last=True, shuffle=True
         )
 
         epoch: int = 0
@@ -93,17 +102,17 @@ class EdgeConnect:
         max_iteration: int = int(float(self.config.MAX_ITERS))
         total: int = len(self.train_dataset)
 
-        rho_clipper = RhoClipper(0., 1.)
+        rho_clipper = RhoClipper(0.0, 1.0)
 
         if total == 0:
-            print('No training data was provided! Check \'TRAIN_FLIST\' value in the configuration file.')
+            print("No training data was provided! Check 'TRAIN_FLIST' value in the configuration file.")
             return
 
         while keep_training:
             epoch += 1
-            print('\n\nTraining epoch: %d' % epoch)
+            print("\n\nTraining epoch: %d" % epoch)
 
-            progbar = Progbar(total, width=20, stateful_metrics=['epoch', 'iter'])
+            progbar = Progbar(total, width=20, stateful_metrics=["epoch", "iter"])
 
             for items in train_loader:
                 self.edge_model.train()
@@ -118,8 +127,8 @@ class EdgeConnect:
 
                     # metrics
                     precision, recall = self.edgeacc(edges * masks, outputs * masks)
-                    logs.append(('precision', precision.item()))
-                    logs.append(('recall', recall.item()))
+                    logs.append(("precision", precision.item()))
+                    logs.append(("recall", recall.item()))
 
                     # backward
                     self.edge_model.backward(gen_loss, dis_loss)
@@ -137,8 +146,8 @@ class EdgeConnect:
                     # metrics
                     psnr = self.psnr(self.postprocess(images), self.postprocess(outputs_merged))
                     mae = (torch.sum(torch.abs(images - outputs_merged)) / torch.sum(images)).float()
-                    logs.append(('psnr', psnr.item()))
-                    logs.append(('mae', mae.item()))
+                    logs.append(("psnr", psnr.item()))
+                    logs.append(("mae", mae.item()))
 
                     # backward
                     self.inpaint_model.backward(gen_loss, dis_loss)
@@ -162,8 +171,8 @@ class EdgeConnect:
                     # metrics
                     psnr = self.psnr(self.postprocess(images), self.postprocess(outputs_merged))
                     mae = (torch.sum(torch.abs(images - outputs_merged)) / torch.sum(images)).float()
-                    logs.append(('psnr', psnr.item()))
-                    logs.append(('mae', mae.item()))
+                    logs.append(("psnr", psnr.item()))
+                    logs.append(("mae", mae.item()))
 
                     # backward
                     self.inpaint_model.backward(gen_loss, dis_loss)
@@ -184,10 +193,10 @@ class EdgeConnect:
                     psnr = self.psnr(self.postprocess(images), self.postprocess(outputs_merged))
                     mae = (torch.sum(torch.abs(images - outputs_merged)) / torch.sum(images)).float()
                     precision, recall = self.edgeacc(edges * masks, e_outputs * masks)
-                    e_logs.append(('pre', precision.item()))
-                    e_logs.append(('rec', recall.item()))
-                    i_logs.append(('psnr', psnr.item()))
-                    i_logs.append(('mae', mae.item()))
+                    e_logs.append(("pre", precision.item()))
+                    e_logs.append(("rec", recall.item()))
+                    i_logs.append(("psnr", psnr.item()))
+                    i_logs.append(("mae", mae.item()))
                     logs = e_logs + i_logs
 
                     # backward
@@ -203,13 +212,11 @@ class EdgeConnect:
                     keep_training = False
                     break
 
-                logs = [
-                           ("epoch", epoch),
-                           ("iter", iteration),
-                       ] + logs
+                logs = [("epoch", epoch), ("iter", iteration)] + logs
 
-                progbar.add(len(images),
-                            values=logs if self.config.VERBOSE else [x for x in logs if not x[0].startswith('l_')])
+                progbar.add(
+                    len(images), values=logs if self.config.VERBOSE else [x for x in logs if not x[0].startswith("l_")]
+                )
 
                 # log model at checkpoints
                 if self.config.LOG_INTERVAL and iteration % self.config.LOG_INTERVAL == 0:
@@ -221,21 +228,18 @@ class EdgeConnect:
 
                 # evaluate model at checkpoints
                 if self.config.EVAL_INTERVAL and iteration % self.config.EVAL_INTERVAL == 0:
-                    print('\nstart eval...\n')
+                    print("\nstart eval...\n")
                     self.eval()
 
                 # save model at checkpoints
                 if self.config.SAVE_INTERVAL and iteration % self.config.SAVE_INTERVAL == 0:
                     self.save()
 
-        print('\nEnd training....')
+        print("\nEnd training....")
 
     def eval(self):
         val_loader = DataLoader(
-            dataset=self.val_dataset,
-            batch_size=self.config.BATCH_SIZE,
-            drop_last=True,
-            shuffle=True
+            dataset=self.val_dataset, batch_size=self.config.BATCH_SIZE, drop_last=True, shuffle=True
         )
 
         model = self.config.MODEL
@@ -244,7 +248,7 @@ class EdgeConnect:
         self.edge_model.eval()
         self.inpaint_model.eval()
 
-        progbar = Progbar(total, width=20, stateful_metrics=['it'])
+        progbar = Progbar(total, width=20, stateful_metrics=["it"])
         iteration = 0
 
         for items in val_loader:
@@ -258,8 +262,8 @@ class EdgeConnect:
 
                 # metrics
                 precision, recall = self.edgeacc(edges * masks, outputs * masks)
-                logs.append(('precision', precision.item()))
-                logs.append(('recall', recall.item()))
+                logs.append(("precision", precision.item()))
+                logs.append(("recall", recall.item()))
 
             # inpaint model
             elif model == 2:
@@ -270,8 +274,8 @@ class EdgeConnect:
                 # metrics
                 psnr = self.psnr(self.postprocess(images), self.postprocess(outputs_merged))
                 mae = (torch.sum(torch.abs(images - outputs_merged)) / torch.sum(images)).float()
-                logs.append(('psnr', psnr.item()))
-                logs.append(('mae', mae.item()))
+                logs.append(("psnr", psnr.item()))
+                logs.append(("mae", mae.item()))
 
             # inpaint with edge model
             elif model == 3:
@@ -285,8 +289,8 @@ class EdgeConnect:
                 # metrics
                 psnr = self.psnr(self.postprocess(images), self.postprocess(outputs_merged))
                 mae = (torch.sum(torch.abs(images - outputs_merged)) / torch.sum(images)).float()
-                logs.append(('psnr', psnr.item()))
-                logs.append(('mae', mae.item()))
+                logs.append(("psnr", psnr.item()))
+                logs.append(("mae", mae.item()))
 
             # joint model
             else:
@@ -300,13 +304,13 @@ class EdgeConnect:
                 psnr = self.psnr(self.postprocess(images), self.postprocess(outputs_merged))
                 mae = (torch.sum(torch.abs(images - outputs_merged)) / torch.sum(images)).float()
                 precision, recall = self.edgeacc(edges * masks, e_outputs * masks)
-                e_logs.append(('pre', precision.item()))
-                e_logs.append(('rec', recall.item()))
-                i_logs.append(('psnr', psnr.item()))
-                i_logs.append(('mae', mae.item()))
+                e_logs.append(("pre", precision.item()))
+                e_logs.append(("rec", recall.item()))
+                i_logs.append(("psnr", psnr.item()))
+                i_logs.append(("mae", mae.item()))
                 logs = e_logs + i_logs
 
-            logs = [("it", iteration), ] + logs
+            logs = [("it", iteration)] + logs
             progbar.add(len(images), values=logs)
 
     def test(self):
@@ -316,10 +320,7 @@ class EdgeConnect:
         model = self.config.MODEL
         create_dir(self.results_path)
 
-        test_loader = DataLoader(
-            dataset=self.test_dataset,
-            batch_size=1,
-        )
+        test_loader = DataLoader(dataset=self.test_dataset, batch_size=1,)
 
         index = 0
         for items in test_loader:
@@ -352,12 +353,12 @@ class EdgeConnect:
             if self.debug:
                 edges = self.postprocess(1 - edges)[0]
                 masked = self.postprocess(images * (1 - masks) + masks)[0]
-                fname, fext = name.split('.')
+                fname, fext = name.split(".")
 
-                imsave(edges, os.path.join(self.results_path, fname + '_edge.' + fext))
-                imsave(masked, os.path.join(self.results_path, fname + '_masked.' + fext))
+                imsave(edges, os.path.join(self.results_path, fname + "_edge." + fext))
+                imsave(masked, os.path.join(self.results_path, fname + "_masked." + fext))
 
-        print('\nEnd test....')
+        print("\nEnd test....")
 
     def sample(self, it=None):
         # do not sample when validation set is empty
@@ -407,18 +408,18 @@ class EdgeConnect:
             self.postprocess(edges),
             self.postprocess(outputs),
             self.postprocess(outputs_merged),
-            img_per_row=image_per_row
+            img_per_row=image_per_row,
         )
 
         path = os.path.join(self.samples_path, self.model_name)
         name = os.path.join(path, str(iteration).zfill(5) + ".png")
         create_dir(path)
-        print('\nsaving sample ' + name)
+        print("\nsaving sample " + name)
         images.save(name)
 
     def log(self, logs):
-        with open(self.log_file, 'a') as f:
-            f.write('%s\n' % ' '.join([str(item[1]) for item in logs]))
+        with open(self.log_file, "a") as f:
+            f.write("%s\n" % " ".join([str(item[1]) for item in logs]))
 
     def cuda(self, *args):
         return (item.to(self.config.DEVICE) for item in args)
