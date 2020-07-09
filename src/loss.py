@@ -9,27 +9,27 @@ class AdversarialLoss(nn.Module):
     https://arxiv.org/abs/1711.10337
     """
 
-    def __init__(self, loss_type: str = 'nsgan', target_real_label: float = 1., target_fake_label: float = .0):
+    def __init__(self, loss_type: str = "nsgan", target_real_label: float = 1.0, target_fake_label: float = 0.0):
         r"""
         type = nsgan | lsgan | hinge
         """
-        super(AdversarialLoss, self).__init__()
+        super().__init__()
 
         self.type = loss_type
-        self.register_buffer('real_label', torch.tensor(target_real_label))
-        self.register_buffer('fake_label', torch.tensor(target_fake_label))
+        self.register_buffer("real_label", torch.tensor(target_real_label))
+        self.register_buffer("fake_label", torch.tensor(target_fake_label))
 
-        if self.type == 'nsgan':
+        if self.type == "nsgan":
             self.criterion = nn.BCELoss()
-        elif self.type == 'lsgan':
+        elif self.type == "lsgan":
             self.criterion = nn.MSELoss()
-        elif self.type == 'hinge':
+        elif self.type == "hinge":
             self.criterion = nn.ReLU()
         else:
             raise NotImplementedError
 
     def __call__(self, outputs, is_real, is_disc=None):
-        if self.type == 'hinge':
+        if self.type == "hinge":
             if is_disc:
                 if is_real:
                     outputs = -outputs
@@ -49,9 +49,10 @@ class StyleLoss(nn.Module):
     https://arxiv.org/abs/1603.08155
     https://github.com/dxyang/StyleTransfer/blob/master/utils.py
     """
+
     def __init__(self):
-        super(StyleLoss, self).__init__()
-        self.add_module('vgg', VGG19())
+        super().__init__()
+        self.add_module("vgg", VGG19())
         self.criterion = torch.nn.L1Loss()
 
     @staticmethod
@@ -67,11 +68,11 @@ class StyleLoss(nn.Module):
         x_vgg, y_vgg = self.vgg(x), self.vgg(y)
 
         # Compute loss
-        style_loss = .0
-        style_loss += self.criterion(self.compute_gram(x_vgg['conv2_2']), self.compute_gram(y_vgg['conv2_2']))
-        style_loss += self.criterion(self.compute_gram(x_vgg['conv3_4']), self.compute_gram(y_vgg['conv3_4']))
-        style_loss += self.criterion(self.compute_gram(x_vgg['conv4_4']), self.compute_gram(y_vgg['conv4_4']))
-        style_loss += self.criterion(self.compute_gram(x_vgg['conv5_2']), self.compute_gram(y_vgg['conv5_2']))
+        style_loss = 0.0
+        style_loss += self.criterion(self.compute_gram(x_vgg["conv2_2"]), self.compute_gram(y_vgg["conv2_2"]))
+        style_loss += self.criterion(self.compute_gram(x_vgg["conv3_4"]), self.compute_gram(y_vgg["conv3_4"]))
+        style_loss += self.criterion(self.compute_gram(x_vgg["conv4_4"]), self.compute_gram(y_vgg["conv4_4"]))
+        style_loss += self.criterion(self.compute_gram(x_vgg["conv5_2"]), self.compute_gram(y_vgg["conv5_2"]))
         return style_loss
 
 
@@ -82,9 +83,10 @@ class PerceptualLoss(nn.Module):
     https://github.com/dxyang/StyleTransfer/blob/master/utils.py
     http://openaccess.thecvf.com/content_ECCVW_2018/papers/11133/Wang_ESRGAN_Enhanced_Super-Resolution_Generative_Adversarial_Networks_ECCVW_2018_paper.pdf
     """
-    def __init__(self, weights=(1., 1., 1., 1., 1.)):
-        super(PerceptualLoss, self).__init__()
-        self.add_module('vgg', VGG19())
+
+    def __init__(self, weights=(1.0, 1.0, 1.0, 1.0, 1.0)):
+        super().__init__()
+        self.add_module("vgg", VGG19())
         self.criterion = torch.nn.L1Loss()
         self.weights = weights
 
@@ -92,18 +94,18 @@ class PerceptualLoss(nn.Module):
         # Compute features
         x_vgg, y_vgg = self.vgg(x), self.vgg(y)
 
-        content_loss = .0
-        content_loss += self.weights[0] * self.criterion(x_vgg['conv1_1'], y_vgg['conv1_1'])
-        content_loss += self.weights[1] * self.criterion(x_vgg['conv2_1'], y_vgg['conv2_1'])
-        content_loss += self.weights[2] * self.criterion(x_vgg['conv3_1'], y_vgg['conv3_1'])
-        content_loss += self.weights[3] * self.criterion(x_vgg['conv4_1'], y_vgg['conv4_1'])
-        content_loss += self.weights[4] * self.criterion(x_vgg['conv5_1'], y_vgg['conv5_1'])
+        content_loss = 0.0
+        content_loss += self.weights[0] * self.criterion(x_vgg["conv1_1"], y_vgg["conv1_1"])
+        content_loss += self.weights[1] * self.criterion(x_vgg["conv2_1"], y_vgg["conv2_1"])
+        content_loss += self.weights[2] * self.criterion(x_vgg["conv3_1"], y_vgg["conv3_1"])
+        content_loss += self.weights[3] * self.criterion(x_vgg["conv4_1"], y_vgg["conv4_1"])
+        content_loss += self.weights[4] * self.criterion(x_vgg["conv5_1"], y_vgg["conv5_1"])
         return content_loss
 
 
 class VGG19(torch.nn.Module):
     def __init__(self):
-        super(VGG19, self).__init__()
+        super().__init__()
         features = models.vgg19(pretrained=True).features
         self.conv1_1 = torch.nn.Sequential()
         self.conv1_2 = torch.nn.Sequential()
@@ -201,25 +203,21 @@ class VGG19(torch.nn.Module):
         conv5_4 = self.conv5_4(conv5_3)
 
         out = {
-            'conv1_1': conv1_1,
-            'conv1_2': conv1_2,
-
-            'conv2_1': conv2_1,
-            'conv2_2': conv2_2,
-
-            'conv3_1': conv3_1,
-            'conv3_2': conv3_2,
-            'conv3_3': conv3_3,
-            'conv3_4': conv3_4,
-
-            'conv4_1': conv4_1,
-            'conv4_2': conv4_2,
-            'conv4_3': conv4_3,
-            'conv4_4': conv4_4,
-
-            'conv5_1': conv5_1,
-            'conv5_2': conv5_2,
-            'conv5_3': conv5_3,
-            'conv5_4': conv5_4,
+            "conv1_1": conv1_1,
+            "conv1_2": conv1_2,
+            "conv2_1": conv2_1,
+            "conv2_2": conv2_2,
+            "conv3_1": conv3_1,
+            "conv3_2": conv3_2,
+            "conv3_3": conv3_3,
+            "conv3_4": conv3_4,
+            "conv4_1": conv4_1,
+            "conv4_2": conv4_2,
+            "conv4_3": conv4_3,
+            "conv4_4": conv4_4,
+            "conv5_1": conv5_1,
+            "conv5_2": conv5_2,
+            "conv5_3": conv5_3,
+            "conv5_4": conv5_4,
         }
         return out

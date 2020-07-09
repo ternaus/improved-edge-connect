@@ -1,6 +1,7 @@
 import os
 import random
 from glob import glob
+from typing import Optional
 
 import numpy as np
 import scipy
@@ -12,12 +13,21 @@ from skimage.color import rgb2gray, gray2rgb
 from skimage.feature import canny
 from torch.utils.data import DataLoader
 
+from src.config import Config
 from .utils import create_mask
 
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, config, flist, edge_flist, mask_flist, augment: bool = True, training: bool = True):
-        super(Dataset, self).__init__()
+    def __init__(
+        self,
+        config: Config,
+        flist: list,
+        edge_flist: list,
+        mask_flist: list,
+        augment: Optional[bool] = True,
+        training: Optional[bool] = True,
+    ):
+        super().__init__()
 
         self.augment = augment
         self.training = training
@@ -40,13 +50,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        try:
-            item = self.load_item(index)
-        except:
-            print('loading error: ' + self.data[index])
-            item = self.load_item(0)
-
-        return item
+        return self.load_item(index)
 
     def load_name(self, index):
         name = self.data[index]
@@ -160,7 +164,7 @@ class Dataset(torch.utils.data.Dataset):
         return img_t
 
     @staticmethod
-    def resize(img, height, width, center_crop: bool = True):
+    def resize(img: np.ndarray, height: int, width: int, center_crop: Optional[bool] = True) -> np.ndarray:
         img_h, img_w = img.shape[:2]
 
         if center_crop and img_h != img_w:
@@ -168,7 +172,7 @@ class Dataset(torch.utils.data.Dataset):
             side = np.minimum(img_h, img_w)
             j = (img_h - side) // 2
             i = (img_w - side) // 2
-            img = img[j:j + side, i:i + side, ...]
+            img = img[j : j + side, i : i + side, ...]
 
         img = scipy.misc.imresize(img, [height, width])
         return img
@@ -181,23 +185,21 @@ class Dataset(torch.utils.data.Dataset):
         # flist: image file path, image directory path, text file flist path
         if isinstance(flist, str):
             if os.path.isdir(flist):
-                flist = sorted(list(glob(flist + '/*.jpg')) + list(glob(flist + '/*.png')))
+                flist = sorted(list(glob(flist + "/*.jpg")) + list(glob(flist + "/*.png")))
                 return flist
 
             if os.path.isfile(flist):
-                try:
-                    return np.genfromtxt(flist, dtype=np.str, encoding='utf-8')
-                except:
-                    return [flist]
+                # try:
+                #     return np.genfromtxt(flist, dtype=np.str, encoding="utf-8")
+                # except:
+                #     return [flist]
+
+                return np.genfromtxt(flist, dtype=np.str, encoding="utf-8")
         return []
 
     def create_iterator(self, batch_size):
         while True:
-            sample_loader = DataLoader(
-                dataset=self,
-                batch_size=batch_size,
-                drop_last=True,
-            )
+            sample_loader = DataLoader(dataset=self, batch_size=batch_size, drop_last=True,)
 
             for item in sample_loader:
                 yield item
