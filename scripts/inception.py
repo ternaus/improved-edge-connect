@@ -1,5 +1,8 @@
-import torch.nn as nn
+from typing import List
+
+import torch
 import torch.nn.functional as F
+from torch import nn
 from torchvision import models
 
 
@@ -19,8 +22,12 @@ class InceptionV3(nn.Module):
     }
 
     def __init__(
-        self, output_blocks=[DEFAULT_BLOCK_INDEX], resize_input=True, normalize_input=True, requires_grad=False
-    ):
+        self,
+        output_blocks: List[int] = [DEFAULT_BLOCK_INDEX],
+        resize_input: bool = True,
+        normalize_input: bool = True,
+        requires_grad: bool = False,
+    ) -> None:
         """Build pretrained InceptionV3
         Parameters
         ----------
@@ -49,7 +56,8 @@ class InceptionV3(nn.Module):
         self.output_blocks = sorted(output_blocks)
         self.last_needed_block = max(output_blocks)
 
-        assert self.last_needed_block <= 3, "Last possible output block index is 3"
+        if self.last_needed_block > 3:
+            raise ValueError("Last possible output block index is 3")
 
         self.blocks = nn.ModuleList()
 
@@ -96,7 +104,7 @@ class InceptionV3(nn.Module):
         for param in self.parameters():
             param.requires_grad = requires_grad
 
-    def forward(self, inp):
+    def forward(self, inp: torch.Tensor) -> torch.Tensor:
         """Get Inception feature maps
         Parameters
         ----------
